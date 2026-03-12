@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<body>
+    <h2>Тест генерации QR-кода</h2>
+    <input id="text" value="https://example.com" placeholder="Введите текст">
+    <button onclick="testQR()">Сгенерировать</button>
+    <div id="result"></div>
+
+    <script>
+    async function testQR() {
+        const text = document.getElementById('text').value;
+        const response = await fetch('http://localhost:5000/api/generate-qr', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text })
+        });
+        
+        if (response.ok) {
+            const blob = await response.blob();
+            const url = URL.createObjectURL(blob);
+            document.getElementById('result').innerHTML = 
+                `<img src="${url}" alt="QR Code"><br>
+                 <a href="${url}" download="qrcode.png">Скачать</a>`;
+        } else {
+            alert('Ошибка: ' + await response.text());
+        }
+    }
+    </script>
+</body>
+</html>
