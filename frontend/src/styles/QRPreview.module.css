@@ -1,0 +1,113 @@
+.previewCard {
+  border-radius: 14px;
+  background-color: #020617;
+  border: 1px solid rgba(55, 65, 81, 0.9);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.title {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.caption {
+  font-size: 0.8rem;
+  color: #9ca3af;
+}
+
+.canvas {
+  position: relative;
+  width: 100%;
+  padding-top: 100%;
+  border-radius: 12px;
+  background:
+    radial-gradient(circle at top, rgba(59, 130, 246, 0.08), transparent),
+    #020617;
+  border: 1px dashed rgba(75, 85, 99, 0.9);
+  overflow: hidden;
+}
+
+.image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-size: 0.85rem;
+  color: #9ca3af;
+  text-align: center;
+  padding: 0 16px;
+}
+
+.loadingOverlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.88);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: #e5e7eb;
+  z-index: 1;
+}
+
+.loader {
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  border: 3px solid rgba(248, 250, 252, 0.4);
+  border-top-color: #f9fafb;
+  animation: spin 0.7s linear infinite;
+}
+
+.downloadLink {
+  align-self: flex-start;
+  font-size: 0.85rem;
+  text-decoration: none;
+  color: #bfdbfe;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(59, 130, 246, 0.7);
+  margin-top: 2px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.actionsRow {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.error {
+  font-size: 0.82rem;
+  color: #fecaca;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+

@@ -1,0 +1,342 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.labelRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.labelRow label {
+  font-weight: 600;
+  color: #333;
+}
+
+.hint {
+  font-size: 12px;
+  color: #666;
+}
+
+.textarea {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 14px;
+  resize: vertical;
+  transition: border-color 0.3s;
+}
+
+.textarea:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.input,
+.select {
+  width: 100%;
+  padding: 10px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 14px;
+  transition: border-color 0.3s;
+}
+
+.input:focus,
+.select:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.dualRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.colorRow {
+  position: relative;
+}
+
+.colorSwatch {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  background: white;
+  cursor: pointer;
+  transition: border-color 0.3s;
+}
+
+.colorSwatch:hover {
+  border-color: #667eea;
+}
+
+.colorDot {
+  width: 30px;
+  height: 30px;
+  border-radius: 4px;
+  border: 1px solid #e0e0e0;
+}
+
+.colorCode {
+  font-family: monospace;
+  font-size: 14px;
+  color: #333;
+}
+
+.popover {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 1000;
+  margin-top: 10px;
+}
+
+.popoverCover {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 999;
+}
+
+.dropzone {
+  border: 2px dashed #e0e0e0;
+  border-radius: 8px;
+  padding: 30px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s;
+  background: #f9f9f9;
+}
+
+.dropzone:hover {
+  border-color: #667eea;
+  background: #f0f0f0;
+}
+
+.dropzoneActive {
+  border-color: #4caf50;
+  background: #e8f5e8;
+}
+
+.dropzoneReject {
+  border-color: #f44336;
+  background: #ffebee;
+}
+
+.dropzoneAccept {
+  border-color: #4caf50;
+  background: #e8f5e8;
+}
+
+.dropzoneTitle {
+  font-size: 16px;
+  color: #333;
+  margin-bottom: 5px;
+}
+
+.dropzoneSubtitle {
+  font-size: 14px;
+  color: #666;
+}
+
+.logoPreview {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-top: 10px;
+  padding: 10px;
+  background: #f5f5f5;
+  border-radius: 8px;
+}
+
+.logoPreview img {
+  width: 50px;
+  height: 50px;
+  object-fit: contain;
+  border-radius: 4px;
+}
+
+.logoPreviewMeta {
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.logoName {
+  font-size: 14px;
+  color: #333;
+  word-break: break-all;
+}
+
+.linkButton {
+  background: none;
+  border: none;
+  color: #f44336;
+  cursor: pointer;
+  font-size: 14px;
+  text-decoration: underline;
+}
+
+.linkButton:hover {
+  color: #d32f2f;
+}
+
+.checkboxRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  position: relative;
+}
+
+.checkboxRow input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.tooltip {
+  position: relative;
+}
+
+.tooltipBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-left: 5px;
+  background: #667eea;
+  color: white;
+  border-radius: 50%;
+  font-size: 12px;
+  cursor: help;
+}
+
+.tooltipContent {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 12px;
+  background: #333;
+  color: white;
+  font-size: 12px;
+  border-radius: 4px;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s;
+  pointer-events: none;
+  z-index: 1000;
+}
+
+.tooltip:hover .tooltipContent {
+  opacity: 1;
+  visibility: visible;
+  bottom: 120%;
+}
+
+.error {
+  padding: 12px;
+  background: #ffebee;
+  color: #f44336;
+  border-radius: 8px;
+  font-size: 14px;
+  border: 1px solid #f44336;
+}
+
+.progress {
+  position: relative;
+  height: 30px;
+  background: #f0f0f0;
+  border-radius: 15px;
+  overflow: hidden;
+}
+
+.progressBar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: linear-gradient(90deg, #667eea, #764ba2);
+  transition: width 0.3s;
+}
+
+.progressLabel {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+  z-index: 1;
+}
+
+.actionsRow {
+  display: flex;
+  gap: 15px;
+  margin-top: 10px;
+}
+
+.primaryBtn,
+.secondaryBtn {
+  flex: 1;
+  padding: 12px;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.primaryBtn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.primaryBtn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+}
+
+.primaryBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.secondaryBtn {
+  background: white;
+  color: #666;
+  border: 2px solid #e0e0e0;
+}
+
+.secondaryBtn:hover:not(:disabled) {
+  border-color: #667eea;
+  color: #667eea;
+}
+
+.secondaryBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

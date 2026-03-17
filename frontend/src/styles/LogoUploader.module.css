@@ -1,0 +1,74 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.label {
+  font-size: 0.82rem;
+  color: #9ca3af;
+}
+
+.dropZone {
+  border-radius: 10px;
+  border: 1px dashed rgba(75, 85, 99, 0.9);
+  background-color: rgba(15, 23, 42, 0.8);
+  padding: 10px;
+  cursor: pointer;
+}
+
+.dropZoneInner {
+  position: relative;
+  text-align: center;
+  padding: 8px;
+  font-size: 0.82rem;
+  color: #9ca3af;
+}
+
+.dropTitle {
+  margin: 0;
+  font-weight: 500;
+}
+
+.dropSubtitle {
+  margin: 2px 0 0;
+  font-size: 0.78rem;
+  color: #6b7280;
+}
+
+.fileInput {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.fileInfo {
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.fileName {
+  font-size: 0.8rem;
+  color: #e5e7eb;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clearButton {
+  border: none;
+  background: transparent;
+  color: #fca5a5;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.error {
+  font-size: 0.8rem;
+  color: #fecaca;
+}
+
