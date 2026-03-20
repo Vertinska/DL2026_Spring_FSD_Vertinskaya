@@ -21,7 +21,7 @@
 Отображение результата на странице.
 Загрузка результата
 
-Возможность скачать QR-код в формате PNG.
+Возможность скачать QR-код в форматах PNG и SVG.
 Простой API для генерации
 
 Endpoint POST /api/generate-qr.
@@ -35,9 +35,9 @@ Endpoint POST /api/generate-qr.
 Настройка уровня коррекции ошибок (L/M/Q/H).
 Управление историей
 
-Сохранение записей о сгенерированных QR-кодах в базе данных.
-Просмотр списка истории с пагинацией/поиском.
-Повторная генерация (re-generate) QR-кода из записи истории.
+Сохранение истории генераций в `localStorage` (включая `base64` изображение и настройки).
+Просмотр списка истории.
+Возможность загрузить настройки из истории и повторно использовать уже сохранённый QR без нового запроса генерации.
 Возможность удалить запись из истории.
 Управление пользователями (если понадобится)
 
@@ -57,79 +57,79 @@ URL: POST /api/generate-qr
 Поля тела запроса:
 
 Обязательные:
-data (string) — данные для кодирования (текст или URL).
+text (string) — данные для кодирования (текст или URL).
 Опциональные:
 size (number) — размер изображения в пикселях (например, 256, 512).
 foregroundColor (string) — цвет QR в формате HEX или rgba (например, #000000).
 backgroundColor (string) — цвет фона (например, #FFFFFF).
 errorCorrectionLevel (string) — уровень коррекции ошибок (L, M, Q, H).
-logo (file, через multer) — файл логотипа для вставки в центр.
-saveToHistory (boolean) — сохранить ли результат и параметры в историю (true/false).
-userId (string, при наличии аутентификации) — идентификатор пользователя, чтобы привязать запись к нему.
+logo (file, через multer) — файл логотипа для вставки в центр (PNG/JPG/SVG).
+roundLogo (boolean/string) — круглый логотип для PNG-режима (поддерживаются `true/false` и строка `"true"/"false"`).
+logoSize (number) — размер логотипа в пикселях (30..80).
+format (string) — формат результата: `"png"` (PNG поддерживает логотип) или `"svg"` (векторный QR, логотип не накладывается).
 Пример JSON-полезной нагрузки (вариант без файлов)
 {
-  "data": "https://example.com",
+  "text": "https://example.com",
   "size": 512,
   "foregroundColor": "#000000",
   "backgroundColor": "#FFFFFF",
   "errorCorrectionLevel": "M",
-  "saveToHistory": true,
-  "userId": "123456"
+  "roundLogo": true,
+  "logoSize": 50,
+  "format": "png"
 }
 Ответ
 Код 200 (успешно):
 
-Формат 1 (возвращаем base64):
-
-{
-  "id": "qr_abc123", 
-  "imageBase64": "data:image/png;base64,....",
-  "data": "https://example.com",
-  "size": 512,
-  "foregroundColor": "#000000",
-  "backgroundColor": "#FFFFFF",
-  "errorCorrectionLevel": "M",
-  "createdAt": "2026-03-12T10:00:00.000Z"
-}
-Формат 2 (отдаём бинарный PNG):
-
+PNG (`format=png`):
 Тело ответа: бинарные данные PNG.
-Заголовки:
 Content-Type: image/png
-Content-Disposition: inline; filename="qrcode.png"
-Коды ошибок:
 
-400 Bad Request — невалидные входные данные (пустой data, неверный формат цвета и т.п.).
+SVG (`format=svg`):
+Тело ответа: строка SVG.
+Content-Type: image/svg+xml
+
+Заголовки (используются фронтендом для “Поделиться” и скачивания по ссылке):
+X-QR-Image-Path: путь в `/uploads/...` до сохранённого файла.
+
+Коды ошибок:
+400 Bad Request — невалидные входные данные (пустой text, неверный формат HEX, неверный size, слишком похожие цвета/ошибки обработки логотипа).
 500 Internal Server Error — ошибка генерации или обработки изображения.
 4. Модель данных (для хранения истории)
 Если предполагается хранение истории в базе данных (например, MongoDB или PostgreSQL), можно использовать следующую модель для сущности QrCodeRecord:
 
-id: string / UUID — уникальный идентификатор записи.
-userId: string (опционально) — владелец записи (если есть система пользователей).
-data: string — исходный текст или URL, который был закодирован.
+text: string — исходный текст или URL, который был закодирован.
 size: number — размер изображения в пикселях.
 foregroundColor: string — цвет QR-кода.
 backgroundColor: string — цвет фона.
 errorCorrectionLevel: string — уровень коррекции ошибок (L/M/Q/H).
-logoPath: string (опционально) — путь к сохранённому логотипу на сервере (если логотип храним).
-imagePath: string — путь к сохранённому PNG/SVG-файлу QR-кода (если храним файл на диске).
+roundLogo: boolean — включён ли круглый логотип (для PNG-режима).
+logoSize: number — размер логотипа в px (30..80).
+format: string — `"png"` или `"svg"`.
+logoPath: string (опционально) — путь к сохранённому логотипу на сервере.
+imagePath: string — путь к сохранённому PNG/SVG-файлу QR-кода.
 createdAt: Date — дата и время создания QR-кода.
-updatedAt: Date (опционально) — дата последнего обновления (если добавим возможность редактирования).
+updatedAt: Date (опционально) — дата последнего обновления.
 Пример схемы (MongoDB/Mongoose, концептуально):
 
 {
-  id: String,
-  userId: String,
-  data: String,
+  text: String,
   size: Number,
   foregroundColor: String,
   backgroundColor: String,
   errorCorrectionLevel: String,
+  roundLogo: Boolean,
+  logoSize: Number,
+  format: String,
   logoPath: String,
   imagePath: String,
   createdAt: Date,
   updatedAt: Date
 }
+
+Примечание по истории:
+UI-история в текущей реализации хранится в `localStorage` как `base64`-изображение и параметры.
+Бэкенд при этом сохраняет файлы QR/логотипа в `/uploads` и метаданные в MongoDB, но отдельные endpoints истории не используются UI напрямую.
 5. Технические решения
 Фронтенд: React
 Почему React:
