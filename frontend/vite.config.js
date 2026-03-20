@@ -1,8 +1,7 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
-// Vite dev server configuration with proxy to the Node.js backend.
-// Frontend runs on http://localhost:3000 and proxies /api requests to http://localhost:5000.
+const target = process.env.VITE_API_URL || "http://localhost:5000";
 
 export default defineConfig({
   plugins: [react()],
@@ -10,7 +9,11 @@ export default defineConfig({
     port: 3000,
     proxy: {
       "/api": {
-        target: "http://localhost:5000",
+        target,
+        changeOrigin: true,
+      },
+      "/uploads": {
+        target,
         changeOrigin: true,
       },
     },

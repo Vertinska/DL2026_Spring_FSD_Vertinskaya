@@ -1,10 +1,24 @@
 import React, { useEffect, useState } from "react";
 import styles from "../styles/QRPreview.module.css";
 
+const isEphemeralUrl = (u) =>
+  !u ||
+  typeof u !== "string" ||
+  u.startsWith("blob:") ||
+  u.startsWith("data:");
+
+/** Ссылка, которую можно открыть в другой вкладке / вставить в адресную строку */
+const getShareableLink = (serverUrl, imageUrl) => {
+  if (!isEphemeralUrl(serverUrl)) return serverUrl;
+  if (!isEphemeralUrl(imageUrl)) return imageUrl;
+  return null;
+};
+
 const QRPreview = ({ imageUrl, serverUrl, format = "png", isLoading, error }) => {
   const hasImage = Boolean(imageUrl);
   const downloadName = format === "svg" ? "qr-code.svg" : "qr-code.png";
   const hrefForDownload = serverUrl || imageUrl;
+  const shareableLink = getShareableLink(serverUrl, imageUrl);
   const [info, setInfo] = useState("");
   const [imgError, setImgError] = useState(false);
 
@@ -44,8 +58,13 @@ const QRPreview = ({ imageUrl, serverUrl, format = "png", isLoading, error }) =>
   };
 
   const handleCopyLink = async () => {
-    const link = serverUrl || imageUrl;
-    if (!link) return;
+    const link = shareableLink;
+    if (!link) {
+      setInfo(
+        "Постоянная ссылка недоступна (нет URL на сервере). Сгенерируйте QR ещё раз."
+      );
+      return;
+    }
     const ok = await copyText(link);
     setInfo(ok ? "Ссылка скопирована" : "Не удалось скопировать ссылку");
   };
@@ -134,6 +153,12 @@ const QRPreview = ({ imageUrl, serverUrl, format = "png", isLoading, error }) =>
             type="button"
             onClick={handleCopyLink}
             className={styles.downloadLink}
+            disabled={!shareableLink}
+            title={
+              shareableLink
+                ? "Копировать ссылку на файл на сервере"
+                : "Сначала нужна ссылка на сервер (не blob)"
+            }
           >
             Поделиться (копировать ссылку)
           </button>

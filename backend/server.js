@@ -12,6 +12,10 @@ const QRCodeModel = require("./models/QRCode");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const CORS_ORIGINS = (process.env.CORS_ORIGINS || "http://localhost:3000")
+  .split(",")
+  .map((v) => v.trim())
+  .filter(Boolean);
 
 // Connect to MongoDB (use env var if provided, otherwise local)
 const mongoUri =
@@ -26,10 +30,15 @@ mongoose
     console.error("[MongoDB] Connection error:", err);
   });
 
-// CORS: в dev разрешаем запросы с фронтенда на localhost:3000
+// CORS origins are configurable via CORS_ORIGINS env
 app.use(
   cors({
-    origin: ["http://localhost:3000"],
+    origin(origin, callback) {
+      // Allow server-to-server and tools without Origin header
+      if (!origin) return callback(null, true);
+      if (CORS_ORIGINS.includes(origin)) return callback(null, true);
+      return callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
@@ -489,6 +498,55 @@ app.post("/api/generate-qr", upload.single("logo"), async (req, res) => {
     console.error("[/api/generate-qr] Unhandled error:", error);
     return res.status(500).json({
       message: "Internal server error while generating QR code.",
+      error: error.message,
+    });
+  }
+});
+
+app.get("/api/history", async (req, res) => {
+  try {
+    const limitRaw = Number(req.query.limit);
+    const limit = Number.isFinite(limitRaw)
+      ? Math.max(1, Math.min(100, limitRaw))
+      : 30;
+
+    const items = await QRCodeModel.find().sort({ createdAt: -1 }).limit(limit).lean();
+    return res.json(items);
+  } catch (error) {
+    console.error("[/api/history] Failed to load history:", error);
+    return res.status(500).json({
+      message: "Failed to load history.",
+      error: error.message,
+    });
+  }
+});
+
+app.delete("/api/history/:id", async (req, res) => {
+  try {
+    const doc = await QRCodeModel.findByIdAndDelete(req.params.id);
+    if (!doc) {
+      return res.status(404).json({ message: "Record not found." });
+    }
+
+    const unlinkIfExists = async (relativePath) => {
+      if (!relativePath || typeof relativePath !== "string") return;
+      const normalized = relativePath.replace(/^\/+/, "");
+      const fullPath = path.join(__dirname, normalized);
+      try {
+        await fs.promises.unlink(fullPath);
+      } catch (e) {
+        if (e?.code !== "ENOENT") {
+          console.warn("[/api/history/:id] Failed to remove file:", fullPath, e);
+        }
+      }
+    };
+
+    await Promise.all([unlinkIfExists(doc.imagePath), unlinkIfExists(doc.logoPath)]);
+    return res.json({ success: true });
+  } catch (error) {
+    console.error("[/api/history/:id] Failed to delete record:", error);
+    return res.status(500).json({
+      message: "Failed to delete history record.",
       error: error.message,
     });
   }

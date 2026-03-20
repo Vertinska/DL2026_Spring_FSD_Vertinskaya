@@ -94,6 +94,13 @@
   cursor: pointer;
 }
 
+.downloadLink:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  border-color: rgba(75, 85, 99, 0.8);
+  color: #6b7280;
+}
+
 .actionsRow {
   display: flex;
   gap: 8px;

@@ -1,8 +1,6 @@
 import React from "react";
 import styles from "../styles/HistoryList.module.css";
 
-const BACKEND_ORIGIN = "http://localhost:5000";
-
 const formatDateTime = (value) => {
   if (!value) return "";
   const date = new Date(value);
@@ -28,8 +26,7 @@ const HistoryList = ({ items, onSelect, onDelete }) => {
         {items.map((item) => {
           const key = item._id || item.id;
           const imageSrc =
-            item.preview ||
-            (item.imagePath ? `${BACKEND_ORIGIN}${item.imagePath}` : null);
+            item.base64Image || item.imageUrl || item.preview || item.imagePath || null;
 
           const shortText =
             item.text && item.text.length > 60
@@ -55,9 +52,7 @@ const HistoryList = ({ items, onSelect, onDelete }) => {
                     src={imageSrc}
                     alt="QR миниатюра"
                     className={styles.thumb}
-                    onError={(e) => {
-                      e.currentTarget.style.display = "none";
-                    }}
+                    onError={() => {}}
                   />
                 ) : (
                   <div className={styles.thumbPlaceholder}>QR</div>

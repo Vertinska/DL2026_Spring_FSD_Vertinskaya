@@ -3,7 +3,12 @@ import debounce from "lodash.debounce";
 import QRForm from "./components/QRForm";
 import QRPreview from "./components/QRPreview";
 import HistoryList from "./components/HistoryList";
-import { generateQr } from "./services/api";
+import {
+  buildBackendAssetUrl,
+  deleteHistoryItem,
+  generateQr,
+  getHistory,
+} from "./services/api";
 
 const DEFAULT_FORM = {
   text: "",
@@ -94,12 +99,14 @@ const App = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState("");
   const [history, setHistory] = useState([]);
+  const [isServerHistoryEnabled, setIsServerHistoryEnabled] = useState(true);
   const [autoGenerate, setAutoGenerate] = useState(true);
+  const [, setCurrentImageBlob] = useState(null);
   const skipNextAutoGenerateRef = useRef(false);
   const lastSignatureRef = useRef(null);
   const abortControllerRef = useRef(null);
 
-  // Загрузка настроек и истории из localStorage
+  // Загрузка настроек и fallback-истории из localStorage
   useEffect(() => {
     try {
       const rawSettings = localStorage.getItem(SETTINGS_KEY);
@@ -129,11 +136,10 @@ const App = () => {
 
     try {
       const rawHistory = localStorage.getItem(HISTORY_KEY);
-      if (rawHistory) {
-        const parsed = JSON.parse(rawHistory);
-        if (Array.isArray(parsed)) {
-          setHistory(parsed);
-        }
+      if (!rawHistory) return;
+      const parsed = JSON.parse(rawHistory);
+      if (Array.isArray(parsed)) {
+        setHistory(parsed);
       }
     } catch {
       // ignore
@@ -169,7 +175,7 @@ const App = () => {
     }
   }, [form]);
 
-  // Сохранение истории в localStorage
+  // Сохранение fallback-истории в localStorage
   const persistHistory = useCallback((items) => {
     try {
       localStorage.setItem(HISTORY_KEY, JSON.stringify(items));
@@ -178,7 +184,35 @@ const App = () => {
     }
   }, []);
 
-  // Добавление в историю (стабильная функция без пересоздания на каждый рендер)
+  const normalizeHistoryItem = useCallback((item) => {
+    if (!item) return null;
+    const imagePathOrUrl = item.imageUrl || item.imagePath || null;
+    return {
+      ...item,
+      id: item.id || item._id,
+      imageUrl: buildBackendAssetUrl(imagePathOrUrl),
+    };
+  }, []);
+
+  const loadHistory = useCallback(async () => {
+    try {
+      const response = await getHistory(30);
+      const items = Array.isArray(response.data)
+        ? response.data.map(normalizeHistoryItem).filter(Boolean)
+        : [];
+      setHistory(items);
+      setIsServerHistoryEnabled(true);
+    } catch (e) {
+      console.warn("Server history is unavailable, fallback to localStorage", e);
+      setIsServerHistoryEnabled(false);
+    }
+  }, [normalizeHistoryItem]);
+
+  useEffect(() => {
+    loadHistory();
+  }, [loadHistory]);
+
+  // Добавление в fallback-историю localStorage
   const addToHistory = useCallback(
     (entry) => {
       setHistory((prev) => {
@@ -234,7 +268,6 @@ const App = () => {
         abortControllerRef.current.abort();
       }
       abortControllerRef.current = new AbortController();
-      lastSignatureRef.current = signature;
 
       setError("");
       setIsLoading(true);
@@ -284,20 +317,28 @@ const App = () => {
 
         const blob = response.data;
         const url = URL.createObjectURL(blob);
-        const imagePath = response.headers["x-qr-image-path"];
-        const origin = "http://localhost:5000";
-        const absoluteUrl = imagePath ? `${origin}${imagePath}` : null;
+        const imagePath =
+          response.headers["x-qr-image-path"] ||
+          response.headers["X-QR-Image-Path"];
+        const absoluteUrl = buildBackendAssetUrl(imagePath);
         const base64Image = await blobToDataUrl(blob);
 
         // Освобождаем старый Blob URL
         setQrImageUrl((prev) => {
-          if (prev) URL.revokeObjectURL(prev);
+          if (prev && prev.startsWith("blob:")) URL.revokeObjectURL(prev);
           return url;
         });
+        setCurrentImageBlob(blob);
         setServerUrl(absoluteUrl);
+        lastSignatureRef.current = signature;
 
-        // Записываем в локальную историю (с превью и параметрами)
-        const historyItem = {
+        if (isServerHistoryEnabled) {
+          await loadHistory();
+          return;
+        }
+
+        // Если серверная история недоступна, сохраняем локальный fallback.
+        const historyItem = normalizeHistoryItem({
           id: Date.now(),
           text: trimmed,
           size: currentForm.size,
@@ -310,17 +351,18 @@ const App = () => {
           logoSize: currentForm.logoSize || 50,
           format: currentForm.format || "png",
           base64Image,
-          preview: url,
-          serverUrl: absoluteUrl,
-        };
+          imageUrl: absoluteUrl,
+        });
         addToHistory(historyItem);
       } catch (e) {
         // Ignore abort errors, they are expected when user changes inputs quickly.
         if (e?.name === "CanceledError" || e?.code === "ERR_CANCELED") {
           return;
         }
+        lastSignatureRef.current = null;
         console.error("QR generation error", e);
         const message =
+          e.serverMessage ||
           e.response?.data?.message ||
           e.response?.data?.error ||
           e.message ||
@@ -331,7 +373,7 @@ const App = () => {
         setUploadProgress(0);
       }
     },
-    [addToHistory]
+    [addToHistory, isServerHistoryEnabled, loadHistory, normalizeHistoryItem]
   );
 
   const debouncedGenerate = useMemo(
@@ -373,6 +415,13 @@ const App = () => {
     debouncedGenerate.cancel();
     setForm(DEFAULT_FORM);
     setLogoFile(null);
+    setQrImageUrl((prev) => {
+      if (prev && prev.startsWith("blob:")) URL.revokeObjectURL(prev);
+      return null;
+    });
+    setCurrentImageBlob(null);
+    setServerUrl(null);
+    lastSignatureRef.current = null;
     setError("");
   };
 
@@ -382,6 +431,7 @@ const App = () => {
     // Поэтому отменяем debounce и пропускаем следующий авто-триггер от обновления формы.
     debouncedGenerate.cancel();
     skipNextAutoGenerateRef.current = true;
+    lastSignatureRef.current = null;
 
     const nextForm = {
       text: item.text || "",
@@ -399,22 +449,33 @@ const App = () => {
     setForm(nextForm);
     setLogoFile(null);
 
-    if (item.base64Image) {
-      setQrImageUrl(item.base64Image);
-    } else if (item.serverUrl) {
-      setQrImageUrl(item.serverUrl);
-    } else if (item.preview) {
-      setQrImageUrl(item.preview);
-    }
-
-    setServerUrl(item.serverUrl || null);
+    const imageUrl =
+      item.base64Image ||
+      item.imageUrl ||
+      buildBackendAssetUrl(item.imagePath || item.serverUrl) ||
+      null;
+    setQrImageUrl(imageUrl);
+    setCurrentImageBlob(null);
+    setServerUrl(item.imageUrl || buildBackendAssetUrl(item.imagePath) || null);
   };
 
-  const handleDeleteFromHistory = (item) => {
+  const handleDeleteFromHistory = async (item) => {
+    const id = item.id || item._id;
+    if (!id) return;
+
+    if (isServerHistoryEnabled) {
+      try {
+        await deleteHistoryItem(id);
+        await loadHistory();
+        return;
+      } catch (e) {
+        console.warn("Failed to delete from server history, fallback to local", e);
+        setIsServerHistoryEnabled(false);
+      }
+    }
+
     setHistory((prev) => {
-      const next = prev.filter(
-        (x) => (x.id || x._id) !== (item.id || item._id)
-      );
+      const next = prev.filter((x) => (x.id || x._id) !== id);
       persistHistory(next);
       return next;
     });
