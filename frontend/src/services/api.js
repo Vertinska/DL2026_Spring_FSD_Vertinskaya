@@ -9,11 +9,12 @@ export const testApi = () => api.get("/test");
 
 // Генерация QR: возвращает axios‑ответ с Blob (PNG)
 // Обёрнуто в try/catch, чтобы логировать и пробрасывать ошибку наверх
-export const generateQr = async (formData, onUploadProgress) => {
+export const generateQr = async (formData, onUploadProgress, signal) => {
   try {
     const response = await api.post("/generate-qr", formData, {
       responseType: "blob",
       onUploadProgress,
+      signal,
     });
     return response;
   } catch (error) {

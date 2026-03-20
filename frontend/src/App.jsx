@@ -12,6 +12,7 @@ const DEFAULT_FORM = {
   backgroundColor: "#ffffff",
   errorCorrectionLevel: "M",
   roundLogo: true,
+  logoSize: 50,
   format: "png",
 };
 
@@ -22,6 +23,58 @@ const isLikelyUrl = (value) => {
   if (!value) return false;
   const trimmed = value.trim().toLowerCase();
   return trimmed.includes(".") || trimmed.startsWith("www.");
+};
+
+const hexToRgb = (hex) => {
+  if (!hex || typeof hex !== "string") return null;
+  const normalized = hex.trim().toUpperCase();
+  const short = /^#([0-9A-F]{3})$/.exec(normalized);
+  const full = /^#([0-9A-F]{6})$/.exec(normalized);
+
+  let r;
+  let g;
+  let b;
+  if (short) {
+    r = parseInt(short[1][0] + short[1][0], 16);
+    g = parseInt(short[1][1] + short[1][1], 16);
+    b = parseInt(short[1][2] + short[1][2], 16);
+  } else if (full) {
+    r = parseInt(full[1].slice(0, 2), 16);
+    g = parseInt(full[1].slice(2, 4), 16);
+    b = parseInt(full[1].slice(4, 6), 16);
+  } else {
+    return null;
+  }
+
+  return { r, g, b };
+};
+
+const relativeLuminance = ({ r, g, b }) => {
+  const srgb = [r, g, b].map((v) => v / 255);
+  const linear = srgb.map((c) =>
+    c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)
+  );
+  return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
+};
+
+const contrastRatio = (fgHex, bgHex) => {
+  const fg = hexToRgb(fgHex);
+  const bg = hexToRgb(bgHex);
+  if (!fg || !bg) return null;
+  const L1 = relativeLuminance(fg);
+  const L2 = relativeLuminance(bg);
+  const light = Math.max(L1, L2);
+  const dark = Math.min(L1, L2);
+  return (light + 0.05) / (dark + 0.05);
+};
+
+const areColorsReadable = (fgHex, bgHex) => {
+  if (!fgHex || !bgHex) return true;
+  if (fgHex.trim().toUpperCase() === bgHex.trim().toUpperCase()) return false;
+
+  const ratio = contrastRatio(fgHex, bgHex);
+  if (ratio === null) return true;
+  return ratio >= 2.5;
 };
 
 const blobToDataUrl = (blob) =>
@@ -43,6 +96,8 @@ const App = () => {
   const [history, setHistory] = useState([]);
   const [autoGenerate, setAutoGenerate] = useState(true);
   const skipNextAutoGenerateRef = useRef(false);
+  const lastSignatureRef = useRef(null);
+  const abortControllerRef = useRef(null);
 
   // Загрузка настроек и истории из localStorage
   useEffect(() => {
@@ -52,6 +107,10 @@ const App = () => {
         const parsed = JSON.parse(rawSettings);
         const normalizedRoundLogo =
           parsed.roundLogo === true || parsed.roundLogo === "true";
+        const normalizedLogoSize =
+          Number.isFinite(Number(parsed.logoSize)) && Number(parsed.logoSize) >= 30
+            ? Math.max(30, Math.min(80, Number(parsed.logoSize)))
+            : DEFAULT_FORM.logoSize;
         const normalizedFormat =
           parsed.format === "svg" || parsed.format === "png"
             ? parsed.format
@@ -60,6 +119,7 @@ const App = () => {
           ...DEFAULT_FORM,
           ...parsed,
           roundLogo: normalizedRoundLogo,
+          logoSize: normalizedLogoSize,
           format: normalizedFormat,
         });
       }
@@ -89,6 +149,7 @@ const App = () => {
       backgroundColor,
       errorCorrectionLevel,
       roundLogo,
+      logoSize,
       format,
     } = form;
     const payload = {
@@ -98,6 +159,7 @@ const App = () => {
       backgroundColor,
       errorCorrectionLevel,
       roundLogo,
+      logoSize,
       format,
     };
     try {
@@ -146,9 +208,48 @@ const App = () => {
         return;
       }
 
+      const signature = JSON.stringify({
+        text: trimmed,
+        size: currentForm.size,
+        foregroundColor: currentForm.foregroundColor,
+        backgroundColor: currentForm.backgroundColor,
+        errorCorrectionLevel: currentForm.errorCorrectionLevel,
+        roundLogo: !!currentForm.roundLogo,
+        logoSize: currentForm.logoSize || 50,
+        format: currentForm.format || "png",
+        logo: currentLogoFile
+          ? `${currentLogoFile.name}:${currentLogoFile.size}:${
+              currentLogoFile.lastModified || 0
+            }`
+          : null,
+      });
+
+      // Guard: если параметры не менялись — не генерируем повторно.
+      if (lastSignatureRef.current === signature) {
+        return;
+      }
+
+      // Abort previous in-flight request (prevents loops/races).
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      abortControllerRef.current = new AbortController();
+      lastSignatureRef.current = signature;
+
       setError("");
       setIsLoading(true);
       setUploadProgress(0);
+
+      // Protect against unreadable QR (too similar colors)
+      if (
+        !areColorsReadable(currentForm.foregroundColor, currentForm.backgroundColor)
+      ) {
+        setIsLoading(false);
+        setError(
+          "Цвета переднего плана и фона слишком похожи. Выберите более контрастные цвета."
+        );
+        return;
+      }
 
       const formData = new FormData();
       formData.append("text", trimmed);
@@ -163,6 +264,7 @@ const App = () => {
           currentForm.errorCorrectionLevel
         );
       formData.append("roundLogo", String(!!currentForm.roundLogo));
+      formData.append("logoSize", String(currentForm.logoSize || 50));
       formData.append("format", currentForm.format || "png");
 
       if (currentLogoFile) {
@@ -170,11 +272,15 @@ const App = () => {
       }
 
       try {
-        const response = await generateQr(formData, (event) => {
+        const response = await generateQr(
+          formData,
+          (event) => {
           if (!event.total) return;
           const percent = Math.round((event.loaded / event.total) * 100);
           setUploadProgress(percent);
-        });
+          },
+          abortControllerRef.current.signal
+        );
 
         const blob = response.data;
         const url = URL.createObjectURL(blob);
@@ -201,6 +307,7 @@ const App = () => {
           hasLogo: !!currentLogoFile,
           createdAt: new Date().toISOString(),
           roundLogo: !!currentForm.roundLogo,
+          logoSize: currentForm.logoSize || 50,
           format: currentForm.format || "png",
           base64Image,
           preview: url,
@@ -208,6 +315,10 @@ const App = () => {
         };
         addToHistory(historyItem);
       } catch (e) {
+        // Ignore abort errors, they are expected when user changes inputs quickly.
+        if (e?.name === "CanceledError" || e?.code === "ERR_CANCELED") {
+          return;
+        }
         console.error("QR generation error", e);
         const message =
           e.response?.data?.message ||
@@ -278,7 +389,11 @@ const App = () => {
       foregroundColor: item.foregroundColor || "#000000",
       backgroundColor: item.backgroundColor || "#ffffff",
       errorCorrectionLevel: item.errorCorrectionLevel || "M",
-      roundLogo: item.roundLogo === true || item.roundLogo === "true",
+      roundLogo:
+        item.roundLogo === undefined || item.roundLogo === null
+          ? DEFAULT_FORM.roundLogo
+          : item.roundLogo === true || item.roundLogo === "true",
+      logoSize: item.logoSize || DEFAULT_FORM.logoSize,
       format: item.format || "png",
     };
     setForm(nextForm);

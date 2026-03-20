@@ -7,6 +7,8 @@ const QRCodeSchema = new mongoose.Schema({
   backgroundColor: { type: String },
   errorCorrectionLevel: { type: String },
   hasLogo: { type: Boolean, default: false },
+  roundLogo: { type: Boolean, default: false },
+  logoSize: { type: Number, default: 50 },
   logoPath: { type: String },
   imagePath: { type: String }, // relative URL/path to stored QR image
   createdAt: { type: Date, default: Date.now },

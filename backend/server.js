@@ -103,6 +103,61 @@ const isValidHex = (color) => {
   return hexRegex.test(color.trim());
 };
 
+const hexToRgb = (hex) => {
+  if (!hex || typeof hex !== "string") return null;
+  const normalized = hex.trim().toUpperCase();
+  const short = /^#([0-9A-F]{3})$/.exec(normalized);
+  const full = /^#([0-9A-F]{6})$/.exec(normalized);
+
+  let r;
+  let g;
+  let b;
+
+  if (short) {
+    r = parseInt(short[1][0] + short[1][0], 16);
+    g = parseInt(short[1][1] + short[1][1], 16);
+    b = parseInt(short[1][2] + short[1][2], 16);
+  } else if (full) {
+    r = parseInt(full[1].slice(0, 2), 16);
+    g = parseInt(full[1].slice(2, 4), 16);
+    b = parseInt(full[1].slice(4, 6), 16);
+  } else {
+    return null;
+  }
+
+  return { r, g, b };
+};
+
+// WCAG relative luminance for sRGB
+const relativeLuminance = ({ r, g, b }) => {
+  const srgb = [r, g, b].map((v) => v / 255);
+  const linear = srgb.map((c) => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)));
+  return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
+};
+
+const contrastRatio = (fgHex, bgHex) => {
+  const fg = hexToRgb(fgHex);
+  const bg = hexToRgb(bgHex);
+  if (!fg || !bg) return null;
+  const L1 = relativeLuminance(fg);
+  const L2 = relativeLuminance(bg);
+  const light = Math.max(L1, L2);
+  const dark = Math.min(L1, L2);
+  return (light + 0.05) / (dark + 0.05);
+};
+
+const areColorsReadable = (fgHex, bgHex) => {
+  if (!fgHex || !bgHex) return true;
+  if (fgHex.trim().toUpperCase() === bgHex.trim().toUpperCase()) return false;
+
+  const ratio = contrastRatio(fgHex, bgHex);
+  if (ratio === null) return true;
+
+  // QR читаемость сильно зависит от контраста. Для безопасной защиты
+  // запрещаем слишком низкий контраст (подбирается эмпирически).
+  return ratio >= 2.5;
+};
+
 // QR generation with optional logo and roundLogo
 app.post("/api/generate-qr", upload.single("logo"), async (req, res) => {
   console.log("[/api/generate-qr] Incoming request");
@@ -127,6 +182,7 @@ app.post("/api/generate-qr", upload.single("logo"), async (req, res) => {
       errorCorrectionLevel,
       roundLogo,
       format,
+      logoSize,
     } = req.body;
 
     if (!text || typeof text !== "string" || text.trim().length === 0) {
@@ -183,6 +239,20 @@ app.post("/api/generate-qr", upload.single("logo"), async (req, res) => {
 
     const ecLevel = errorCorrectionLevel || "M";
 
+    // Logo size: 30..80 px
+    const logoPxRaw = logoSize !== undefined ? Number(logoSize) : 50;
+    const logoPx = Number.isFinite(logoPxRaw)
+      ? Math.max(30, Math.min(80, logoPxRaw))
+      : 50;
+
+    // Protect against unreadable QR due to low color contrast
+    if (!areColorsReadable(fgColor, bgColor)) {
+      return res.status(400).json({
+        message:
+          "Цвета переднего плана и фона слишком похожи. Выберите более контрастные цвета.",
+      });
+    }
+
     // output format: png (default) or svg
     const outFormat =
       typeof format === "string" && format.toLowerCase() === "svg"
@@ -237,6 +307,8 @@ app.post("/api/generate-qr", upload.single("logo"), async (req, res) => {
             errorCorrectionLevel: ecLevel,
             hasLogo: false, // SVG без логотипа
             logoPath: null,
+            roundLogo: shouldRoundLogo,
+            logoSize: logoPx,
             imagePath,
             createdAt: new Date(),
             userId: null,
@@ -294,8 +366,7 @@ app.post("/api/generate-qr", upload.single("logo"), async (req, res) => {
       try {
         console.log("[/api/generate-qr] Processing logo with sharp...");
 
-        const logoSize = 50;
-        let logoImage = sharp(req.file.buffer).resize(logoSize, logoSize, {
+        let logoImage = sharp(req.file.buffer).resize(logoPx, logoPx, {
           fit: "inside",
           withoutEnlargement: true,
         });
@@ -305,11 +376,11 @@ app.post("/api/generate-qr", upload.single("logo"), async (req, res) => {
         if (shouldRoundLogo) {
           try {
             const logoMetadata = await logoImage.metadata();
-            const metaWidth = logoMetadata.width || logoSize;
-            const metaHeight = logoMetadata.height || logoSize;
+            const metaWidth = logoMetadata.width || logoPx;
+            const metaHeight = logoMetadata.height || logoPx;
             const maskSize = Math.max(
               2,
-              Math.min(metaWidth, metaHeight, logoSize)
+              Math.min(metaWidth, metaHeight, logoPx)
             );
 
             const circleSvg = `<svg width="${maskSize}" height="${maskSize}"><circle cx="${
@@ -396,6 +467,8 @@ app.post("/api/generate-qr", upload.single("logo"), async (req, res) => {
         backgroundColor: bgColor,
         errorCorrectionLevel: ecLevel,
         hasLogo: !!req.file,
+        roundLogo: shouldRoundLogo,
+        logoSize: logoPx,
         logoPath,
         imagePath,
         createdAt: new Date(),

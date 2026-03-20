@@ -295,6 +295,25 @@ const QRForm = ({
           </div>
         )}
 
+        <div className={styles.logoSizeRow}>
+          <div className={styles.labelRow}>
+            <label htmlFor="logoSize">Размер логотипа (px)</label>
+            <span className={styles.hint}>{values.logoSize || 50}px</span>
+          </div>
+          <input
+            id="logoSize"
+            type="range"
+            min={30}
+            max={80}
+            value={values.logoSize || 50}
+            onChange={(e) =>
+              onChange({
+                logoSize: Number(e.target.value),
+              })
+            }
+          />
+        </div>
+
         <label className={styles.checkboxRow}>
           <input
             type="checkbox"

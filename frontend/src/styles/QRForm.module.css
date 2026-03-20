@@ -340,3 +340,13 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+.logoSizeRow {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.logoSizeRow input[type="range"] {
+  width: 100%;
+}
