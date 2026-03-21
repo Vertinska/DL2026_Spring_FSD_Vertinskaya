@@ -265,10 +265,12 @@
 
 ## Приложение: Скриншоты
 Скриншоты рабочего приложения прилагаются в папке `/docs/images/`:
-- `01-main-screen.png` - главный экран
-- `02-custom-colors.png` - кастомизация цветов
-- `03-logo-upload.png` - загрузка логотипа
-- `04-round-logo.png` - круглый логотип
-- `05-download.png` - скачивание PNG/SVG
-- `06-history.png` - история QR-кодов
-- `07-validation.png` - валидация ошибок
+- `01-main-screen.png` — главный экран
+- `02-qr-generated.png` — готовый QR-код
+- `03-custom-colors.png` — кастомизация цветов
+- `04-contrast-error.png` — ошибка при выборе похожих цветов
+- `05-small-round-logo.png` — маленький круглый логотип (30px)
+- `06-large-round-logo.png` — большой круглый логотип (70px)
+- `07-square-logo.png` — квадратный логотип
+- `08-format-selector.png` — выбор формата PNG/SVG
+- `09-text-required-error.png` — ошибка "Текст обязателен"
